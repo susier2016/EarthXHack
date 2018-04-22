@@ -103,34 +103,40 @@ static int outputData(struct pt *pt, int interval) {
     static int changeCtr = 0;
     //if distance change reading is larger than 3cm
     //turn on light && send data to serial/wifi? else do otherwise
-    /**Test output
-    Serial.print("at dist[0]: ");
+    /**
+    Test output
+    Serial.print("dist[t=0]: ");
     Serial.print(distanceA[0]);
-    Serial.print("at dist[1]: ");
-    Serial.println(distanceA[1]);
+    Serial.print("cm |dist[t=100]: ");
+    Serial.print(distanceA[1]);
+    Serial.print("cm");
     **/
     distChange = abs(distanceA[oldV] - distanceA[newV]);
     if (distChange > 0.18) {
       digitalWrite(ledPin, HIGH);
-      Serial.print("=");
+      Serial.print("timestamp: ");
       Serial.print((double)timestamp/100, 4);
-      Serial.println("s ON");   
+      Serial.print(" s ON");   
       changeCtr = 0;
     }
     else { //(abs(distanceA[oldV] - distanceA[newV]) <= 3.00)
       //delay for some time to make sure object is asleep
-      changeCtr ++;
+      changeCtr ++;  
       if(changeCtr > 5){
         digitalWrite(ledPin, LOW);
-        if(changeCtr > 5 && changeCtr < 8){
-          Serial.print("=");
-          Serial.print((double)timestamp/100, 4);      
-          Serial.println("s OFF");    
-        }
+        Serial.print("timestamp: ");
+        Serial.print((double)timestamp/100, 4);      
+        Serial.print(" s OFF");  
+      }else{
+        Serial.print("timestamp: ");
+        Serial.print((double)timestamp/100, 4);      
+        Serial.print(" s ON (no Activity)"); 
       }
+        
     }
-    //Serial.print(" Distance Change: ");
-    //Serial.println(distChange, 4);
+    Serial.print(" |deltadist: ");
+    Serial.print(distChange, 4);
+    Serial.println(" cm");
   }
   PT_END(pt);
 }
@@ -159,4 +165,3 @@ static int clearData(struct pt *pt, int interval) {
   }
   PT_END(pt);
 }
-
