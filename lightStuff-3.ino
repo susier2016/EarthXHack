@@ -1,0 +1,194 @@
+#include <pt.h>
+#include <ESP8266WiFi.h>
+#include <FirebaseArduino.h>
+
+#define timeThreshold 15
+#define FIREBASE_HOST "light-stuff.firebaseio.com"
+#define FIREBASE_AUTH "6xeL5HzOaPcb7kD5hFm0CqWyarnojjWYbyTw5YbF"
+#define WIFI_SSID "EarthxHack"
+#define WIFI_PASSWORD "potofdirt"
+
+static struct pt pt1, pt2, pt3;
+int ultrasonic_trigPin = 9, ultrasonic_echoPin = 10;
+int ledPin = 11;
+int tickEvent;
+int runCount = 0;
+double distanceA[2], durationA[5];
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(4800);
+  //ultrasonic sensor and led setup
+  pinMode(ultrasonic_trigPin, OUTPUT);
+  pinMode(ultrasonic_echoPin, INPUT);
+  pinMode(ledPin, OUTPUT);
+
+  //init protothread vars
+  PT_INIT(&pt1);
+  PT_INIT(&pt2);
+  PT_INIT(&pt3);
+  
+ // connect to wifi.
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("connecting");
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("connected: ");
+  Serial.println(WiFi.localIP());
+
+   Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+   Firebase.set("distance",0);
+   Firebase.set("On/Off","Off");
+   Firebase.set("Light Duration",0);
+
+}
+
+void loop() {
+  //clear dataArrays
+  //clearData(&pt3, 250);
+  //read data from sensor and get an avg
+  runSensor(&pt1, 100);
+  //output avg through serial
+  outputData(&pt2, 200);
+}
+
+/**
+   runSensor reads data from the ultrasonic sensor and accumulates and average to commit to com
+   param: struct pt *pt, protothread object
+   param: int interval time between runs
+*/
+static int runSensor(struct pt *pt, int interval) {
+  static unsigned long timestamp = 0;
+  static int count = 0;
+  double duration;
+  double sum = 0, average;
+
+  PT_BEGIN(pt);
+  while (1) {
+    //evaluate whether thread should execute
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval);
+    timestamp = millis();
+
+    for (int i = 0; i < 5; i++) {
+      //run ultrasonic
+      digitalWrite(ultrasonic_trigPin, LOW);
+      delayMicroseconds(10);
+      digitalWrite(ultrasonic_trigPin, HIGH);
+      delayMicroseconds(10);
+      digitalWrite(ultrasonic_trigPin, LOW);
+      //get duration
+      duration = pulseIn(ultrasonic_echoPin, HIGH);
+    }
+    //get avg distance reading
+    //file into array
+    durationA[count] = duration;
+    count = (count + 1) % 5;
+    //get sum of duration then avg
+    for (int i = 0; i < 5; i++) {
+      sum += durationA[i];
+    }
+    for (int i = 0; i < 5; i++) {
+      durationA[i] = 0;
+    }
+    average = sum / 5;
+    sum = 0;
+    //conv into distance and file into array
+    distanceA[runCount] = (average / 58) * 23 / 21;
+    runCount = (runCount + 1) % 2;
+  }
+  PT_END(pt);
+}
+/**
+   outputData takes committed average and prints to comm in some format (every 5 runSensor calls)
+   param: struct pt *pt, protothread object
+   param: int interval time between runs
+*/
+static int outputData(struct pt *pt, int interval) {
+  static unsigned long timestamp = 0;
+
+  PT_BEGIN(pt);
+  while (1) {
+    //evaluate whether thread should execute
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval);
+    timestamp = millis();
+
+    //check if there has been a big change in distance between new and old dist values
+    int oldV = 0;//runCount;
+    int newV = 1;//abs(runCount - 1) % 2;
+    double distChange;
+    static int changeCtr = 0;
+    //if distance change reading is larger than 3cm
+    //turn on light && send data to serial/wifi? else do otherwise
+    /**
+    Test output
+    Serial.print("dist[t=0]: ");
+    Serial.print(distanceA[0]);
+    Serial.print("cm |dist[t=100]: ");
+    Serial.print(distanceA[1]);
+    Serial.print("cm");
+    **/
+    distChange = abs(distanceA[oldV] - distanceA[newV]);
+    if (distChange > 0.18) {
+      digitalWrite(ledPin, HIGH);
+      Serial.print("timestamp: ");
+      Serial.print((double)timestamp/100, 4);
+      Serial.print(" s ON"); 
+      Firebase.set("distance",distChange);  
+      changeCtr = 0;
+    }
+    else { //(abs(distanceA[oldV] - distanceA[newV]) <= 3.00)
+      //delay for some time to make sure object is asleep
+      changeCtr ++;  
+      if(changeCtr > 5){
+        digitalWrite(ledPin, LOW);
+        Serial.print("timestamp: ");
+        Serial.print((double)timestamp/100, 4);      
+        Serial.print(" s OFF");
+        Firebase.set("On/Off","Off");   
+      }else{
+        Serial.print("timestamp: ");
+        Serial.print((double)timestamp/100, 4);      
+        Serial.print(" s ON (no Activity)"); 
+        Firebase.set("On/Off","On");
+      }
+        
+    }
+    Serial.print(" |deltadist: ");
+    Serial.print(distChange, 4);
+    Serial.println(" cm");
+  }
+  PT_END(pt);
+}
+
+/**
+   clearData reinitializes and empties all arrays
+   param: struct pt *pt, protothread object
+   param: int interval time between runs
+*/
+static int clearData(struct pt *pt, int interval) {
+  static unsigned long timestamp = 0;
+
+  PT_BEGIN(pt);
+  while (1) {
+    //evaluate whether thread should execute
+    PT_WAIT_UNTIL(pt, millis() - timestamp > interval);
+    timestamp = millis();
+
+    //clear arrays
+    for (int i = 0; i < 5; i++) {
+      durationA[i] = 0;
+    }
+    for (int i = 0; i < 2; i++) {
+      distanceA[i] = 0;
+    }
+  }
+  PT_END(pt);
+}
+
+
+
+
+
