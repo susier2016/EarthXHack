@@ -15,7 +15,7 @@ Benefits of turning off lights:
 
 3. We believe this idea is unique because no one else is focusing on building technology to solve this problem. We got the idea from Matthew who is a university student and found that a lot of energy is wasted because his roommate usually forgets to turn off the lights of his dorm room when he goes out or goes to sleep.
 
-4. This solution solves the problem by integrating multiple sensors into a cohesive application that can tell if people are awake or active in our living spaces. Depending on that it turns the light on or off.
+4. This solution solves the problem by integrating sensors into a cohesive application that can tell if people are awake or active in our living spaces. Depending on that it turns the light on or off.
 
 5. It works.
 
@@ -23,9 +23,6 @@ Benefits of turning off lights:
 
 Components:
 1. Arduino Uno R3
-2. Servo Motor
-3. HC-05 BT Module
-4. HC-SR501 PIR Motion Sensor
-5. HC-SR04 Ultrasonic Sensor
-6. Photosensor
-7. Male jack to USB connector
+2. AI Thinker ESP8266 Wireless Module
+3. HC-SR04 Ultrasonic Sensor
+4. Male jack to USB connector
